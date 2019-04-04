@@ -20,6 +20,36 @@ prompt() {
 	fi
 }
 
+prompt_yN() {
+	if [ -n "$2" ]; then
+		echo "$1"
+		read -p "$2" -n 1 -r
+	else
+		read -p "$1" -n 1 -r
+	fi
+	echo
+	if [[ $REPLY =~ ^[Yy]$ ]]; then
+		true
+		return
+	fi
+	false
+}
+
+prompt_Yn() {
+	if [ -n "$2" ]; then
+		echo "$1"
+		read -p "$2" -n 1 -r
+	else
+		read -p "$1" -n 1 -r
+	fi
+	echo
+	if [[ $REPLY =~ ^[Nn]$ ]]; then
+		false
+		return
+	fi
+	true
+}
+
 command_exist() {
 	type "$@" &> /dev/null
 }
@@ -28,7 +58,7 @@ startup_prompt() {
 	prompt "
 	Welcome to Code Inventory install!
 
-	Please make sure you have the following:"
+	Before proceeding, please make sure you have the following."
 
 	prompt "
 	Access requirements:
@@ -39,24 +69,28 @@ startup_prompt() {
 	I do have these (y/N) "
 
 	prompt "
-	OS requirements:
-
-	- OS X 10.x or higher" "
-	Yep, that's my case (y/N) "
-
-	prompt "
 	Software requirements:
 
+	- OS X 10.x or higher
 	- Docker
 	- Docker-compose (installed as part of Docker on OS X)
 	- Docker engine is running in Swarm mode
-		- For example, you have ran 'docker swarm init' (or 'docker swarm join') at least once
+		- Run 'docker swarm init' (or 'docker swarm join') command at least once
 		- This is required for encryption
-	- You are logged in to Docker Hub
-		- This is required for pulling Code Inventory's docker images
 
 	(If you are not sure about any of these, please consult Code Inventory documentation!)" "
-	I do have all these, let's go (y/N) "
+	Yes, I do have all these (y/N) "
+
+	prompt "
+	Login requirements:
+
+	- You are logged in to Docker Hub
+		- Run 'docker login' command at least once
+		- This is required for pulling Code Inventory's docker images" "
+	I am logged in, let's go (y/N) "
+
+	prompt "
+	"
 }
 
 require_docker() {
@@ -129,12 +163,29 @@ create_master_password(){
 	# Check if master password already exists, prompt to keep/overwrite
 	already_exists=false
 	want_to_overwrite=false
-	if docker secret ls | grep -w 'code-inventory-master-password'; then
+	if docker secret ls | grep -w 'code-inventory-master-password' &> /dev/null; then
 		already_exists=true
-		read -p 'Master password already exist, do you want to overwrite (not recommended)? (y/n) ' -n 1 -r
-		echo
-		if [[ $REPLY =~ ^[Yy]$ ]]; then
-			want_to_overwrite=true
+		if ! prompt_Yn "Master password already exists, do you want to keep it (recommended)? (Y/n) "; then
+			if ! prompt_Yn "
+			Overwriting an already existing master password is NOT recommended.
+			The master password is used in encrypting sensitive data in Code Inventory's database.
+			If it is changed, existing encrypted data will not be able to be decrypted anymore.
+
+			Only overwrite the master password in certain circumstances, for instance:
+			- When performing a clean install / not restoring from backup
+			- When restoring from a backup which has a different master password" "
+			OK, keep my existing master password (Y/n) "; then
+				if prompt_yN "
+			YOUR MASTER PASSWORD WILL NOW BE REPLACED, AND YOU WILL LOSE THE ABILITY TO
+			USE ENCRYPTED DATA CURRENTLY IN CODE INVENTORY DATABASE, AS WELL AS IN ANY
+			BACKUPS THAT WERE MADE USING THE PREVIOUS MASTER PASSWORD" "
+			I understand implications, go ahead (y/N) "; then
+					want_to_overwrite=true
+				fi
+			fi
+		fi
+		if ! $want_to_overwrite; then
+			echo "Keeping existinig master password"
 		fi
 	fi
 	if ! $already_exists || $want_to_overwrite; then
