@@ -50,7 +50,7 @@ prompt_Yn() {
 	true
 }
 
-command_exist() {
+command_exists() {
 	type "$@" &> /dev/null
 }
 
@@ -64,7 +64,7 @@ startup_prompt() {
 	Access requirements:
 
 	- Docker Hub account https://hub.docker.com
-	- Access to our Vinlab org private repos at Docker Hub
+	- Access to our Vinlab org at Docker Hub
 		- For example, you have received and accepted an invitation to *enduser* team at Vinlab org" "
 	I do have these (y/N) "
 
@@ -78,7 +78,7 @@ startup_prompt() {
 		- Run 'docker swarm init' (or 'docker swarm join') command at least once
 		- This is required for encryption
 
-	(If you are not sure about any of these, please consult Code Inventory documentation!)" "
+	(If you are not sure about any of these, please consult Code Inventory documentation)" "
 	Yes, I do have all these (y/N) "
 
 	prompt "
@@ -94,12 +94,12 @@ startup_prompt() {
 }
 
 require_docker() {
-	if ! command_exist docker; then
+	if ! command_exists docker; then
       echo 'CHECKING IF DOCKER COMMAND IS AVAILABLE>' >&2
 	  echo 'Docker command not found, you need to install Docker first. Exiting.' >&2
 	  exit 1
 	fi
-	if ! command_exist docker-compose; then
+	if ! command_exists docker-compose; then
       echo 'CHECKING IF DOCKER COMPOSE COMMAND IS AVAILABLE>' >&2
 	  echo 'Docker-compose command not found, exiting.' >&2
 	  exit 1
@@ -159,11 +159,19 @@ exit_sequence(){
 	# TODO: verify_installed_files
 }
 
+docker_secret_exists(){
+	if docker secret ls | grep -w "$1" &> /dev/null; then
+		true
+	else
+		false
+	fi
+}
+
 create_master_password(){
 	# Check if master password already exists, prompt to keep/overwrite
 	already_exists=false
 	want_to_overwrite=false
-	if docker secret ls | grep -w 'code-inventory-master-password' &> /dev/null; then
+	if docker_secret_exists 'code-inventory-master-password'; then
 		already_exists=true
 		if ! prompt_Yn "Master password already exists, do you want to keep it (recommended)? (Y/n) "; then
 			if ! prompt_Yn "
@@ -223,6 +231,18 @@ create_master_password(){
 	verify_master_password
 }
 
+create_docker_secrets(){
+	if ! docker_secret_exists 'code-inventory-db-backend-password'; then
+		echo 'U21hcnQtYmFuYW5hcy1zaWxseS1udXRzLTU3Cg==' | base64 -D | docker secret create code-inventory-db-backend-password -
+	fi
+	if ! docker_secret_exists 'code-inventory-db-postgres-password'; then
+		echo 'Rm9nLWNpdHktbWFtYmEtMjcK' | base64 -D | docker secret create code-inventory-db-postgres-password -
+	fi
+	if ! docker_secret_exists 'code-inventory-db-grafana-password'; then
+		echo 'Q2Fzc2Vyb2xlLTc0Nwo=' | base64 -D | docker secret create code-inventory-db-grafana-password -
+	fi
+}
+
 FROM_DIR=`pwd`
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd ${DIR}
@@ -247,9 +267,7 @@ create_master_password
 echo 'CREATING MASTER PASSWORD>DONE'
 
 echo 'CREATING DOCKER SECRETS>'
-echo "    TODO: Save backend user/password to docker secret"
-echo "    TODO: Save grafana user/password to docker secret"
-echo "    TODO: Save postgres password to docker secret"
+create_docker_secrets
 echo 'CREATING DOCKER SECRETS>DONE'
 
 exit_sequence
