@@ -140,7 +140,7 @@ require_master_password() {
 
 verify_master_password() {
 	if ! docker secret ls | grep -w 'code-inventory-master-password' &> /dev/null; then
-      echo 'VERIFYING MASTER PASSWORD>' >&2
+    echo 'VERIFYING MASTER PASSWORD>' >&2
 	  echo 'Master password not found, exiting.' >&2
 	  exit 1
 	fi
@@ -151,12 +151,6 @@ startup_sequence(){
 	require_docker_swarm
 	require_docker_login
 	# TODO: check if CIT is already running, prompt to stop
-}
-
-exit_sequence(){
-	verify_master_password
-	# TODO: verify_other_docker_secrets
-	# TODO: verify_installed_files
 }
 
 docker_secret_exists(){
@@ -242,6 +236,35 @@ create_docker_secrets(){
 		echo 'Q2Fzc2Vyb2xlLTc0Nwo=' | base64 -D | docker secret create code-inventory-db-grafana-password -
 	fi
 }
+
+verify_docker_secrets(){
+	result=true
+	if ! docker_secret_exists 'code-inventory-db-backend-password'; then
+		echo 'VERIFYING DOCKER SECRETS>' >&2
+		echo 'Failed to create docker secret: code-inventory-db-backend-password'
+		result=false
+	fi
+	if ! docker_secret_exists 'code-inventory-db-postgres-password'; then
+		echo 'VERIFYING DOCKER SECRETS>' >&2
+		echo 'Failed to create docker secret: code-inventory-db-postgres-password'
+		result=false
+	fi
+	if ! docker_secret_exists 'code-inventory-db-grafana-password'; then
+		echo 'VERIFYING DOCKER SECRETS>' >&2
+		echo 'Failed to create docker secret: code-inventory-db-grafana-password'
+		result=false
+	fi
+	if ! $result; then
+		exit 1
+	fi
+}
+
+exit_sequence(){
+	verify_master_password
+	verify_docker_secrets
+	# TODO: verify_installed_files
+}
+
 
 FROM_DIR=`pwd`
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
