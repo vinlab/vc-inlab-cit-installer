@@ -113,25 +113,6 @@ docker_swarm_exists() {
 	true
 }
 
-code_inventory_is_running(){
-	if docker container ls | grep -wq 'docker_code_inventory_backend-app_1'; then
-		true
-	elif docker container ls | grep -wq 'docker_code_inventory_backend-postgresql_1'; then
-		true
-	elif docker container ls | grep -wq 'docker_code_inventory_backend-grafana_1'; then
-		true
-	else
-		false
-	fi
-}
-
-require_code_inventory_not_running(){
-	if code_inventory_is_running; then
-		echo 'CHECKING IF CODE INVENTORY IS RUNNING>' >&2
-	  echo 'Code Inventory is currently running. Please stop Code Inventory and re-try. ' >&2
-	  exit 1
-	fi
-}
 
 code_inventory_is_installed(){
 	if [ -d "$home_dir" ]; then
@@ -148,6 +129,25 @@ require_code_inventory_installed(){
 	fi
 }
 
+docker_container_exists(){
+  # We do not use -w flag, to allow for checking by container infix
+  # Example: docker_container_exists 'code_inventory_backend-'
+  # will return true for both 'docker_code_inventory_backend-app_1'
+  # as well as for 'code-inventory_code_inventory_backend-app.1.loe6skwa6i60jnqi4ja75723h'
+  # (last name is specific to docker stack runs)
+	docker container ls | grep --silent "$1"
+}
+
+require_app_not_running() {
+  docker_container_exists 'code_inventory_backend-'
+  # TODO: check if CIT is already running, prompt to stop
+  if docker_container_exists 'code_inventory_backend-'; then
+      echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>' >&2
+	  echo 'Code Inventory is currently running, please stop it before proceeding.' >&2
+	  exit 1
+	fi
+}
+
 docker_present=false
 
 startup_sequence(){
@@ -160,7 +160,7 @@ startup_sequence(){
 	if docker_exists && docker_swarm_exists; then
 		docker_present=true
 	fi
-	require_code_inventory_not_running
+	require_app_not_running
 }
 
 docker_secret_exists(){
@@ -243,7 +243,7 @@ exit_sequence(){
 
 FROM_DIR=`pwd`
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd ${DIR}
+cd ${DIR} || exit 1
 
 startup_prompt
 echo 'CHECKING UNINSTALL PREREQUISITES>'
@@ -269,4 +269,4 @@ if $docker_present; then
 fi
 
 exit_sequence
-cd ${FROM_DIR}
+cd ${FROM_DIR} || exit 1
