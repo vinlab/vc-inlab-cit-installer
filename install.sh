@@ -130,6 +130,23 @@ require_docker_login() {
   # TODO
 }
 
+docker_container_exists(){
+  # We do not use -w flag, to allow for checking by container infix
+  # Example: docker_container_exists 'code_inventory_backend-app'
+  # will return true for both 'docker_code_inventory_backend-app_1'
+  # as well as for 'code-inventory_code_inventory_backend-app.1.loe6skwa6i60jnqi4ja75723h'
+  # (last name is specific to docker stack runs)
+	docker container ls | grep --silent "$1"
+}
+
+require_app_not_running() {
+  if docker_container_exists 'code_inventory_backend-app'; then
+      echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>' >&2
+	  echo 'Code Inventory is currently running, please stop it before proceeding.' >&2
+	  exit 1
+	fi
+}
+
 require_master_password() {
   if ! docker secret ls | grep -w 'code-inventory-master-password'; then
     echo 'CHECKING IF MASTER PASSWORD EXISTS>' >&2
@@ -144,13 +161,6 @@ verify_master_password() {
     echo 'Master password not found, exiting.' >&2
     exit 1
   fi
-}
-
-startup_sequence(){
-  require_docker
-  require_docker_swarm
-  require_docker_login
-  # TODO: check if CIT is already running, prompt to stop
 }
 
 docker_secret_exists(){
@@ -193,8 +203,10 @@ create_master_password(){
     # Prompt for master password
     read -p 'Create master password, for encryption purposes: ' -r -s
     master_password=$REPLY
+    echo
     read -p 'Confirm master password: ' -r -s
     master_password_confirmation=$REPLY
+    echo
     if [ $master_password -ne $master_password_confirmation ]; then
       echo "Passwords do not match, please retry"
       #TODO: implement retrying password entry
@@ -258,29 +270,44 @@ verify_docker_secrets(){
   fi
 }
 
-exit_sequence(){
-  verify_master_password
-  verify_docker_secrets
-  # TODO: verify_installed_files
+pull_docker_images(){
+  # TODO
+  echo "    TODO: docker pull CIT images for backend, frontend, postgres, grafana"
 }
 
+verify_docker_images(){
+  # TODO
+  true
+}
 
+#
+# INSTALL CODE INVENTORY
+#
 FROM_DIR=`pwd`
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd ${DIR}
+cd ${DIR} || exit 1
 
 startup_prompt
+
 echo 'CHECKING SETUP PREREQUISITES>'
-startup_sequence
+require_docker
+require_docker_swarm
+require_docker_login
+require_app_not_running
 echo 'CHECKING SETUP PREREQUISITES>DONE'
 
 echo 'CHECKING IF CODE INVENTORY IS ALREADY INSTALLED>'
 echo "    TODO: check for CIT is already installed, prompt to proceed with overwrite"
 echo 'CHECKING IF CODE INVENTORY IS ALREADY INSTALLED>DONE'
 
+echo 'PULLING CODE INVENTORY DOCKER IMAGES>'
+pull_docker_images
+verify_docker_images
+echo 'PULLING CODE INVENTORY DOCKER IMAGES>DONE'
+
 echo 'DOWNLOADING CODE INVENTORY ASSEMBLY SCRIPTS>'
 echo "    TODO: Download CIT Assembly archive/tgz to /tmp"
-echo "    TODO: Unpack tgz to ~/veracode/code-inventory/bin"
+echo "    TODO: Unpack tgz to ~/.veracode/code-inventory/bin"
 echo "    TODO: Remove CIT Assembly archive from /tmp"
 echo 'DOWNLOADING CODE INVENTORY ASSEMBLY SCRIPTS>DONE'
 
@@ -292,5 +319,9 @@ echo 'CREATING DOCKER SECRETS>'
 create_docker_secrets
 echo 'CREATING DOCKER SECRETS>DONE'
 
-exit_sequence
-cd ${FROM_DIR}
+verify_master_password
+verify_docker_secrets
+# TODO: verify_installed_files
+
+# TODO: Prompt to run Code Inventory
+cd ${FROM_DIR} || exit 1
