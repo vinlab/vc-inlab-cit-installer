@@ -9,6 +9,13 @@
 #
 # Author: Andrey Potekhin
 
+# Constans that vary between releases
+# (Constants are kept in same file to allow script runs over curl)
+BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
+POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
+GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
+FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
+
 prompt() {
   echo "$1"
   if [ -n "$2" ]; then
@@ -195,11 +202,11 @@ create_master_password(){
         fi
       fi
     fi
-    if ! $want_to_overwrite; then
+    if ! ${want_to_overwrite}; then
       echo "Keeping existinig master password"
     fi
   fi
-  if ! $already_exists || $want_to_overwrite; then
+  if ! ${already_exists} || ${want_to_overwrite}; then
     # Prompt for master password
     read -p 'Create master password, for encryption purposes: ' -r -s
     master_password=$REPLY
@@ -207,13 +214,13 @@ create_master_password(){
     read -p 'Confirm master password: ' -r -s
     master_password_confirmation=$REPLY
     echo
-    if [ $master_password -ne $master_password_confirmation ]; then
+    if [ ${master_password} -ne ${master_password_confirmation} ]; then
       echo "Passwords do not match, please retry"
       #TODO: implement retrying password entry
       verify_master_password
     fi
     # Remove master password docker secret, if any
-    if $already_exists; then
+    if ${already_exists}; then
       echo 'REMOVING MASTER PASSWORD DOCKER SECRET>'
       if ! docker secret rm code-inventory-master-password; then
         echo 'Failed to remove master password docker secret, exiting' >&2
@@ -227,7 +234,7 @@ create_master_password(){
     fi
     # Save master password into a docker secret
     echo 'CREATING MASTER PASSWORD>'
-    if ! echo $master_password | docker secret create code-inventory-master-password -; then
+    if ! echo ${master_password} | docker secret create code-inventory-master-password -; then
       echo 'Failed to create master password docker secret, exiting' >&2
       exit 1
     fi
@@ -265,34 +272,73 @@ verify_docker_secrets(){
     echo 'Failed to create docker secret: code-inventory-db-grafana-password'
     result=false
   fi
-  if ! $result; then
+  if ! ${result}; then
     exit 1
   fi
 }
 
+pull_docker_image() {
+  if ! docker pull "$1"; then
+    echo "Failed to pull docker image: $1." >&2
+    echo "Are you logged in to Docker Hub? Please run 'docker login' command!" >&2
+    false
+  else
+    true
+  fi
+}
+
 pull_docker_images(){
-  # TODO
-  echo "    TODO: docker pull CIT images for backend, frontend, postgres, grafana"
+  if ! pull_docker_image ${BACKEND_DOCKER_IMAGE} \
+  || ! pull_docker_image ${POSTGRES_DOCKER_IMAGE} \
+  || ! pull_docker_image ${GRAFANA_DOCKER_IMAGE} 
+  #|| ! pull_docker_image ${FRONTEND_DOCKER_IMAGE}
+  then
+    exit 1
+  fi
+}
+
+docker_image_exists() {
+  # We do not use -w flag, to allow for checking by container infix
+  # Example: docker_image_exists 'code_inventory_backend'
+  # will return true for both 'vinlab/code_inventory_backend:latest'
+  # as well as for 'vinlab/code_inventory_backend:1.0.1'
+  docker image ls  --format '{{.Repository}}:{{.Tag}}' | grep --silent "$1"
+}
+
+verify_docker_image() {
+  exists=$(docker_image_exists "$1")
+  if ! ${exists}; then
+    echo 'CHECKING DOCKER IMAGES>' >&2
+    echo "Failed to verify docker image - docker image is missing: $1." >&2
+    false
+  else
+    true
+  fi
 }
 
 verify_docker_images(){
-  # TODO
-  true
+  echo 'VERIFYING CODE INVENTORY DOCKER IMAGES>'
+  if ! verify_docker_image ${BACKEND_DOCKER_IMAGE} \
+  || ! verify_docker_image ${POSTGRES_DOCKER_IMAGE} \
+  || ! verify_docker_image ${GRAFANA_DOCKER_IMAGE} \
+  || ! verify_docker_image ${FRONTEND_DOCKER_IMAGE}; then
+    exit 1
+  fi
 }
 
 #
 # INSTALL CODE INVENTORY
 #
-FROM_DIR=`pwd`
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd ${DIR} || exit 1
+from_dir=`pwd`
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd ${dir} || exit 1
 
-startup_prompt
+#startup_prompt
 
 echo 'CHECKING SETUP PREREQUISITES>'
 require_docker
 require_docker_swarm
-require_docker_login
+#require_docker_login
 require_app_not_running
 echo 'CHECKING SETUP PREREQUISITES>DONE'
 
@@ -324,4 +370,4 @@ verify_docker_secrets
 # TODO: verify_installed_files
 
 # TODO: Prompt to run Code Inventory
-cd ${FROM_DIR} || exit 1
+cd ${from_dir} || exit 1
