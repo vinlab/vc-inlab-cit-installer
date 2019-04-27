@@ -14,9 +14,21 @@
 #
 # Author: Andrey Potekhin
 
+# Constans that vary between releases
+# (Constants are kept in same file to allow script runs over curl)
+BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
+POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
+GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
+FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
+
 home_dir=~/.veracode/code-inventory
-assembly_dir=$home_dir/bin
-jobs_dir=$home_dir/jobs
+assembly_dir=${home_dir}/bin
+jobs_dir=${home_dir}/jobs
+grafana_dir=${home_dir}/grafana
+data_dir=${home_dir}/data
+
+docker_present=false
+delete_user_data=false
 
 prompt() {
 	echo "$1"
@@ -70,13 +82,6 @@ startup_prompt() {
 	Code Inventory will be removed from your system." "
 	Do you want to proceed? (y/N) "
 
-	prompt "
-	The uninstallation will not remove your data (e.g. the database).
-	To completely remove your data:
-
-	- Manually delete $home_dir dir" "
-	Proceed with uninsall? (y/N) "
-
 	echo
 }
 
@@ -113,7 +118,6 @@ docker_swarm_exists() {
 	true
 }
 
-
 code_inventory_is_installed(){
 	if [ -d "$home_dir" ]; then
 		true
@@ -139,16 +143,12 @@ docker_container_exists(){
 }
 
 require_app_not_running() {
-  docker_container_exists 'code_inventory_backend-'
-  # TODO: check if CIT is already running, prompt to stop
-  if docker_container_exists 'code_inventory_backend-'; then
+  if docker_container_exists 'code_inventory_backend-app'; then
       echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>' >&2
 	  echo 'Code Inventory is currently running, please stop it before proceeding.' >&2
 	  exit 1
 	fi
 }
-
-docker_present=false
 
 startup_sequence(){
 	if ! docker_exists; then
@@ -161,6 +161,36 @@ startup_sequence(){
 		docker_present=true
 	fi
 	require_app_not_running
+}
+
+docker_image_exists() {
+  # We do not use -w flag, to allow for checking by container infix
+  # Example: docker_image_exists 'code_inventory_backend'
+  # will return true for both 'vinlab/code_inventory_backend:latest'
+  # as well as for 'vinlab/code_inventory_backend:1.0.1'
+  docker image ls  --format '{{.Repository}}:{{.Tag}}' | grep --silent "$1"
+}
+
+delete_docker_image() {
+  if ! docker_image_exists "$1"; then
+    echo "Not found: $1." >&2
+    true
+  elif ! docker rmi --force "$1"; then
+    echo "Failed to delete docker image: $1." >&2
+    false
+  else
+    true
+  fi
+}
+
+delete_docker_images(){
+  if ! delete_docker_image ${BACKEND_DOCKER_IMAGE} \
+  || ! delete_docker_image ${POSTGRES_DOCKER_IMAGE} \
+  || ! delete_docker_image ${GRAFANA_DOCKER_IMAGE}
+  #|| ! delete_docker_image ${FRONTEND_DOCKER_IMAGE}
+  then
+    exit 1
+  fi
 }
 
 docker_secret_exists(){
@@ -185,23 +215,26 @@ remove_docker_secrets(){
 
 verify_docker_secrets(){
 	result=true
-	if docker_secret_exists 'code-inventory-db-backend-password'; then
-		echo 'VERIFYING DOCKER SECRETS>' >&2
-		echo 'Failed to remove docker secret: code-inventory-db-backend-password'
-		result=false
-	fi
-	if docker_secret_exists 'code-inventory-db-postgres-password'; then
-		echo 'VERIFYING DOCKER SECRETS>' >&2
-		echo 'Failed to remove docker secret: code-inventory-db-postgres-password'
-		result=false
-	fi
-	if docker_secret_exists 'code-inventory-db-grafana-password'; then
-		echo 'VERIFYING DOCKER SECRETS>' >&2
-		echo 'Failed to remove docker secret: code-inventory-db-grafana-password'
-		result=false
-	fi
-	if ! $result; then
-		echo 'DOCKER SECRETS VERIFICATION FAILED'
+  if ${delete_user_data}; then
+    if docker_secret_exists 'code-inventory-db-backend-password'; then
+      echo 'VERIFYING DOCKER SECRETS>' >&2
+      echo 'Docker secret still present: code-inventory-db-backend-password'
+      result=false
+    fi
+    if docker_secret_exists 'code-inventory-db-postgres-password'; then
+      echo 'VERIFYING DOCKER SECRETS>' >&2
+      echo 'Docker secret still present: code-inventory-db-postgres-password'
+      result=false
+    fi
+    if docker_secret_exists 'code-inventory-db-grafana-password'; then
+      echo 'VERIFYING DOCKER SECRETS>' >&2
+      echo 'Docker secret still present: code-inventory-db-grafana-password'
+      result=false
+    fi
+    if ! ${result}; then
+      echo 'DOCKER SECRETS VERIFICATION FAILED'
+      exit 1
+    fi
 	fi
 }
 
@@ -219,21 +252,58 @@ delete_assembly_dir(){
 	fi
 }
 
+delete_data_dir(){
+	if [ -d "$data_dir" ]; then
+		echo "Deleting $data_dir"
+		rm -r "$data_dir"
+	fi
+}
+
+delete_grafana_dir(){
+	if [ -d "$grafana_dir" ]; then
+		echo "Deleting $grafana_dir"
+		rm -r "$grafana_dir"
+	fi
+}
+
 verify_uninstalled_files(){
 	result=true
-	if [ -d "$jobs_dir" ]; then
-		echo 'VERIFYING UNINSTALLED FILES>' >&2
-		echo "Directory still exists: $jobs_dir"
-		result=false
-	fi
-	if [ -d "$assembly_dir" ]; then
-		echo 'VERIFYING UNINSTALLED FILES>' >&2
-		echo "Directory still exists: $assembly_dir"
-		result=false
-	fi
-	if ! $result; then
-		echo 'UNINSTALLED FILES VERIFICATION FAILED'
-	fi
+  if ${delete_user_data}; then
+  	if [ -d "$jobs_dir" ]; then
+  		echo 'VERIFYING UNINSTALLED FILES>' >&2
+  		echo "Directory still exists: $jobs_dir"
+  		result=false
+  	fi
+  	if [ -d "$assembly_dir" ]; then
+  		echo 'VERIFYING UNINSTALLED FILES>' >&2
+  		echo "Directory still exists: $assembly_dir"
+  		result=false
+  	fi
+  	if [ -d "$data_dir" ]; then
+  		echo 'VERIFYING UNINSTALLED FILES>' >&2
+  		echo "Directory still exists: $data_dir"
+  		result=false
+  	fi
+  	if [ -d "$grafana_dir" ]; then
+  		echo 'VERIFYING UNINSTALLED FILES>' >&2
+  		echo "Directory still exists: $grafana_dir"
+  		result=false
+  	fi
+  	if ! ${result}; then
+  		echo 'UNINSTALLED FILES VERIFICATION FAILED'
+  	fi
+  fi
+}
+
+prompt_to_delete_user_data(){
+  if prompt_yN "
+        Delete user data? THIS WILL DELETE YOUR USER DATABASE
+        AS WELL AS ALL CODE DOWNLOADED FOR ANALYSIS." "
+        I understand implications, go ahead delete my data (y/N) "; then
+    delete_user_data=true
+  else
+    delete_user_data=false
+  fi
 }
 
 exit_sequence(){
@@ -241,9 +311,13 @@ exit_sequence(){
 	verify_uninstalled_files
 }
 
-FROM_DIR=`pwd`
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-cd ${DIR} || exit 1
+from_dir=`pwd`
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd ${dir} || exit 1
+
+
+#prompt_to_delete_user_data
+#exit 0
 
 startup_prompt
 echo 'CHECKING UNINSTALL PREREQUISITES>'
@@ -254,19 +328,42 @@ echo 'CHECKING IF CODE INVENTORY IS INSTALLED>'
 require_code_inventory_installed
 echo 'CHECKING IF CODE INVENTORY IS INSTALLED>DONE'
 
-echo 'DELETING CODE INVENTORY JOBS DIR>'
-delete_jobs_dir
-echo 'DELETING CODE INVENTORY JOBS DIR>DONE'
-
 echo 'DELETING CODE INVENTORY ASSEMBLY SCRIPTS>'
 delete_assembly_dir
 echo 'DELETING CODE INVENTORY ASSEMBLY SCRIPTS>DONE'
 
-if $docker_present; then
-	echo 'REMOVING DOCKER SECRETS>'
-	remove_docker_secrets
-	echo 'REMOVING DOCKER SECRETS>DONE'
+echo 'DELETING CODE INVENTORY DOCKER IMAGES>'
+delete_docker_images
+echo 'DELETING CODE INVENTORY DOCKER IMAGES>DONE'
+
+prompt_to_delete_user_data
+
+if ${delete_user_data}; then
+  echo 'DELETING CODE INVENTORY JOBS DIR>'
+  delete_jobs_dir
+  echo 'DELETING CODE INVENTORY JOBS DIR>DONE'
+
+  echo 'DELETING CODE INVENTORY GRAFANA DIR>'
+#  delete_grafana_dir
+  echo 'DELETING CODE INVENTORY GRAFANA DIR>DONE'
+
+  echo 'DELETING CODE INVENTORY CODE DIR>'
+#  delete_code_dir
+  echo 'DELETING CODE INVENTORY CODE DIR>DONE'
+
+  if ${docker_present}; then
+  	echo 'REMOVING DOCKER SECRETS>'
+#  	remove_docker_secrets
+  	echo 'REMOVING DOCKER SECRETS>DONE'
+  fi
+
+  echo 'DELETING CODE INVENTORY DATABASE>'
+#  delete_data_dir
+  echo 'DELETING CODE INVENTORY DATABASE>DONE'
+
 fi
 
 exit_sequence
-cd ${FROM_DIR} || exit 1
+echo 'CODE INVENTORY IS UNINSTALLED>'
+
+cd ${from_dir} || exit 1
