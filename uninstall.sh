@@ -14,19 +14,21 @@
 #
 # Author: Andrey Potekhin
 
-# Constans that vary between releases
+# Constants that vary between releases
 # (Constants are kept in same file to allow script runs over curl)
 BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
 POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
 GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
 FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
+ASSEMBLY_DOCKER_IMAGE=vinlab/code-inventory-assembly:latest
+APP='CODE INVENTORY'
+App='Code Inventory'
 
 home_dir=~/.veracode/code-inventory
 assembly_dir=${home_dir}/bin
 jobs_dir=${home_dir}/jobs
 grafana_dir=${home_dir}/grafana
 data_dir=${home_dir}/data
-
 docker_present=false
 delete_user_data=false
 
@@ -77,9 +79,9 @@ command_exists() {
 
 startup_prompt() {
 	prompt "
-	Uninstall Code Inventory
+	Uninstall ${App}
 
-	Code Inventory will be removed from your system." "
+	${App} will be removed from your system." "
 	Do you want to proceed? (y/N) "
 
 	echo
@@ -128,7 +130,7 @@ code_inventory_is_installed(){
 
 require_code_inventory_installed(){
 	if ! code_inventory_is_installed; then
-	  echo 'Code Inventory installation not found. Exiting.' >&2
+	  echo '${App} installation not found. Exiting.' >&2
 	  exit 1
 	fi
 }
@@ -142,10 +144,18 @@ docker_container_exists(){
 	docker container ls | grep --silent "$1"
 }
 
+require_container_not_running() {
+  if docker_container_exists "$1"; then
+      echo 'CHECKING FOR RUNNING APPLICATION CONTAINERS>' >&2
+	  echo "One of ${App} containers is currently running: $1. Please stop ${App} before proceeding." >&2
+	  exit 1
+	fi
+}
+
 require_app_not_running() {
   if docker_container_exists 'code_inventory_backend-app'; then
       echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>' >&2
-	  echo 'Code Inventory is currently running, please stop it before proceeding.' >&2
+	  echo "${App} is currently running, please stop it before proceeding." >&2
 	  exit 1
 	fi
 }
@@ -161,6 +171,9 @@ startup_sequence(){
 		docker_present=true
 	fi
 	require_app_not_running
+	require_container_not_running 'code_inventory_backend-postgres'
+	require_container_not_running 'code_inventory_backend-grafana'
+	require_container_not_running 'code_inventory_frontend-app'
 }
 
 docker_image_exists() {
@@ -188,6 +201,7 @@ delete_docker_images(){
   || ! delete_docker_image ${POSTGRES_DOCKER_IMAGE} \
   || ! delete_docker_image ${GRAFANA_DOCKER_IMAGE}
   #|| ! delete_docker_image ${FRONTEND_DOCKER_IMAGE}
+  #|| ! delete_docker_image ${ASSEMBLY_DOCKER_IMAGE}
   then
     exit 1
   fi
@@ -295,11 +309,23 @@ verify_uninstalled_files(){
   fi
 }
 
+optionally_system_prune(){
+  if prompt_Yn "
+        We can optionally run 'docker system prune' to remove unused Docker
+        containers, networks, images and build cache.
+
+        Prune docker system (optional)? (Y/n) "; then
+    docker system prune --force
+  fi
+}
+
 prompt_to_delete_user_data(){
   if prompt_yN "
-        Delete user data? THIS WILL DELETE YOUR USER DATABASE
-        AS WELL AS ALL CODE DOWNLOADED FOR ANALYSIS." "
-        I understand implications, go ahead delete my data (y/N) "; then
+        Delete user data? THIS WILL DELETE YOUR USER DATABASE, INCLUDING
+        ACCESS TOKENS, OPTIONS, ANALYSIS, DOWNLOADED CODE ETC. Use this option
+        only if you want to completely remove ${App} data from your system,
+        or reset everything to a clean state." "
+        I understand, go ahead delete my data (y/N) "; then
     delete_user_data=true
   else
     delete_user_data=false
@@ -324,46 +350,53 @@ echo 'CHECKING UNINSTALL PREREQUISITES>'
 startup_sequence
 echo 'CHECKING UNINSTALL PREREQUISITES>DONE'
 
-echo 'CHECKING IF CODE INVENTORY IS INSTALLED>'
+echo "CHECKING IF ${APP} IS INSTALLED>"
 require_code_inventory_installed
-echo 'CHECKING IF CODE INVENTORY IS INSTALLED>DONE'
+echo "CHECKING IF ${APP} IS INSTALLED>DONE"
 
-echo 'DELETING CODE INVENTORY ASSEMBLY SCRIPTS>'
+echo "DELETING ${APP} ASSEMBLY SCRIPTS>"
 delete_assembly_dir
-echo 'DELETING CODE INVENTORY ASSEMBLY SCRIPTS>DONE'
+echo "DELETING ${APP} ASSEMBLY SCRIPTS>DONE"
 
-echo 'DELETING CODE INVENTORY DOCKER IMAGES>'
+echo "DELETING ${APP} DOCKER IMAGES>"
 delete_docker_images
-echo 'DELETING CODE INVENTORY DOCKER IMAGES>DONE'
+echo "DELETING ${APP} DOCKER IMAGES>DONE"
 
+optionally_system_prune
 prompt_to_delete_user_data
 
 if ${delete_user_data}; then
-  echo 'DELETING CODE INVENTORY JOBS DIR>'
+  echo "DELETING ${APP} JOBS DIR>"
   delete_jobs_dir
-  echo 'DELETING CODE INVENTORY JOBS DIR>DONE'
+  echo "DELETING ${APP} JOBS DIR>DONE"
 
-  echo 'DELETING CODE INVENTORY GRAFANA DIR>'
-#  delete_grafana_dir
-  echo 'DELETING CODE INVENTORY GRAFANA DIR>DONE'
+  echo "DELETING ${APP} GRAFANA DIR>"
+  delete_grafana_dir
+  echo "DELETING ${APP} GRAFANA DIR>DONE"
 
-  echo 'DELETING CODE INVENTORY CODE DIR>'
-#  delete_code_dir
-  echo 'DELETING CODE INVENTORY CODE DIR>DONE'
+  echo "DELETING ${APP} CODE DIR>"
+  delete_code_dir
+  echo "DELETING ${APP} CODE DIR>DONE"
 
   if ${docker_present}; then
   	echo 'REMOVING DOCKER SECRETS>'
-#  	remove_docker_secrets
+  	remove_docker_secrets
   	echo 'REMOVING DOCKER SECRETS>DONE'
   fi
 
-  echo 'DELETING CODE INVENTORY DATABASE>'
-#  delete_data_dir
-  echo 'DELETING CODE INVENTORY DATABASE>DONE'
+  echo "DELETING ${APP} DATABASE>"
+  delete_data_dir
+  echo "DELETING ${APP} DATABASE>DONE"
 
+else
+  echo "
+        >The uninstallation did not remove your data.
+
+        If you reinstall ${App}, your existing data will be there.
+        To completely remove your data, manually delete ${home_dir}"
 fi
 
 exit_sequence
-echo 'CODE INVENTORY IS UNINSTALLED>'
+echo '${APP} HAS BEEN UNINSTALLED'
 
 cd ${from_dir} || exit 1
