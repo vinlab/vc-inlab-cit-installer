@@ -9,12 +9,21 @@
 #
 # Author: Andrey Potekhin
 
-# Constans that vary between releases
+# Constants that vary between releases
 # (Constants are kept in same file to allow script runs over curl)
 BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
 POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
 GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
 FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
+ASSEMBLY_DOCKER_IMAGE=vinlab/code-inventory-assembly:latest
+APP='CODE INVENTORY'
+App='Code Inventory'
+
+home_dir=~/.veracode/code-inventory
+assembly_dir=${home_dir}/bin
+jobs_dir=${home_dir}/jobs
+grafana_dir=${home_dir}/grafana
+
 
 prompt() {
   echo "$1"
@@ -63,7 +72,7 @@ command_exists() {
 
 startup_prompt() {
   prompt "
-  Welcome to Code Inventory install!
+  Welcome to ${App} install!
 
   Before proceeding, please make sure you have the following."
 
@@ -85,7 +94,7 @@ startup_prompt() {
 		- Run 'docker swarm init' (or 'docker swarm join') command at least once
 		- This is required for encryption
 
-	(If you are not sure about any of these, please consult Code Inventory documentation)" "
+	(If you are not sure about any of these, please consult ${App} documentation)" "
   Yes, I do have all these (y/N) "
 
   prompt "
@@ -93,7 +102,7 @@ startup_prompt() {
 
 	- You are logged in to Docker Hub
 		- Run 'docker login' command at least once
-		- This is required for pulling Code Inventory's docker images" "
+		- This is required for pulling ${App}'s docker images" "
   I am logged in, let's go (y/N) "
 
   prompt "
@@ -146,10 +155,18 @@ docker_container_exists(){
 	docker container ls | grep --silent "$1"
 }
 
+require_container_not_running() {
+  if docker_container_exists "$1"; then
+      echo 'CHECKING FOR RUNNING APPLICATION CONTAINERS>' >&2
+	  echo "One of ${App} containers is currently running: $1. Please stop ${App} before proceeding." >&2
+	  exit 1
+	fi
+}
+
 require_app_not_running() {
   if docker_container_exists 'code_inventory_backend-app'; then
       echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>' >&2
-	  echo 'Code Inventory is currently running, please stop it before proceeding.' >&2
+	  echo '${App} is currently running, please stop it before proceeding.' >&2
 	  exit 1
 	fi
 }
@@ -186,7 +203,7 @@ create_master_password(){
     if ! prompt_Yn "Master password already exists, do you want to keep it (recommended)? (Y/n) "; then
       if ! prompt_Yn "
         Overwriting an already existing master password is NOT recommended.
-        The master password is used in encrypting sensitive data in Code Inventory's database.
+        The master password is used in encrypting sensitive data in ${App}'s database.
         If it is changed, existing encrypted data will not be able to be decrypted anymore.
 
         Only overwrite the master password in certain circumstances, for instance:
@@ -195,7 +212,7 @@ create_master_password(){
         OK, keep my existing master password (Y/n) "; then
         if prompt_yN "
         YOUR MASTER PASSWORD WILL NOW BE REPLACED, AND YOU WILL LOSE THE ABILITY TO
-        USE ENCRYPTED DATA CURRENTLY IN CODE INVENTORY DATABASE, AS WELL AS IN ANY
+        USE ENCRYPTED DATA CURRENTLY IN ${APP} DATABASE, AS WELL AS IN ANY
         BACKUPS THAT WERE MADE USING THE PREVIOUS MASTER PASSWORD" "
         I understand implications, go ahead (y/N) "; then
           want_to_overwrite=true
@@ -290,8 +307,9 @@ pull_docker_image() {
 pull_docker_images(){
   if ! pull_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! pull_docker_image ${POSTGRES_DOCKER_IMAGE} \
-  || ! pull_docker_image ${GRAFANA_DOCKER_IMAGE} 
+  || ! pull_docker_image ${GRAFANA_DOCKER_IMAGE}
   #|| ! pull_docker_image ${FRONTEND_DOCKER_IMAGE}
+  #|| ! pull_docker_image ${ASSEMBLY_DOCKER_IMAGE}
   then
     exit 1
   fi
@@ -306,9 +324,8 @@ docker_image_exists() {
 }
 
 verify_docker_image() {
-  exists=$(docker_image_exists "$1")
-  if ! ${exists}; then
-    echo 'CHECKING DOCKER IMAGES>' >&2
+  if ! docker_image_exists "$1"; then
+    echo 'VERIFYING DOCKER IMAGES>' >&2
     echo "Failed to verify docker image - docker image is missing: $1." >&2
     false
   else
@@ -317,11 +334,42 @@ verify_docker_image() {
 }
 
 verify_docker_images(){
-  echo 'VERIFYING CODE INVENTORY DOCKER IMAGES>'
   if ! verify_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! verify_docker_image ${POSTGRES_DOCKER_IMAGE} \
-  || ! verify_docker_image ${GRAFANA_DOCKER_IMAGE} \
-  || ! verify_docker_image ${FRONTEND_DOCKER_IMAGE}; then
+  || ! verify_docker_image ${GRAFANA_DOCKER_IMAGE}
+  #|| ! verify_docker_image ${FRONTEND_DOCKER_IMAGE}
+  then
+    exit 1
+  fi
+}
+
+check_if_app_installed(){
+  #echo "Check for CIT is already installed, prompt to proceed with overwrite"
+  if ! docker_image_exists ${BACKEND_DOCKER_IMAGE} \
+  || ! docker_image_exists ${FRONTEND_DOCKER_IMAGE}
+  then
+    echo 'CHECKING IF APPLICATION ALREADY INSTALLED>' >&2
+    prompt "
+    ${App} is already installed." "
+    Proceed with reinstall? Your data will not be affected. (y/N) "
+  fi
+}
+
+verify_dir(){
+	if ! [ -d "$2" ]; then
+    echo 'VERIFYING INSTALLED FILES>' >&2
+    echo "Missing $1 dir: $2" >&2
+    false
+	else
+	  true
+	fi
+}
+
+verify_installed_files() {
+  if ! verify_dir "application home" ${home_dir} \
+  || ! verify_dir "application binaries" ${assembly_dir}
+  then
+    echo "${APP} INSTALLATION FAILED>"
     exit 1
   fi
 }
@@ -333,29 +381,31 @@ from_dir=`pwd`
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd ${dir} || exit 1
 
-#startup_prompt
+startup_prompt
 
 echo 'CHECKING SETUP PREREQUISITES>'
 require_docker
 require_docker_swarm
-#require_docker_login
+require_docker_login
 require_app_not_running
+require_container_not_running 'code_inventory_backend-postgres'
+require_container_not_running 'code_inventory_backend-grafana'
+require_container_not_running 'code_inventory_frontend-app'
 echo 'CHECKING SETUP PREREQUISITES>DONE'
 
-echo 'CHECKING IF CODE INVENTORY IS ALREADY INSTALLED>'
-echo "    TODO: check for CIT is already installed, prompt to proceed with overwrite"
-echo 'CHECKING IF CODE INVENTORY IS ALREADY INSTALLED>DONE'
+echo "CHECKING IF ${APP} IS ALREADY INSTALLED>"
+check_if_app_installed
+echo "CHECKING IF ${APP} IS ALREADY INSTALLED>DONE"
 
-echo 'PULLING CODE INVENTORY DOCKER IMAGES>'
+echo "PULLING ${APP} DOCKER IMAGES>"
 pull_docker_images
 verify_docker_images
-echo 'PULLING CODE INVENTORY DOCKER IMAGES>DONE'
+echo "PULLING ${APP} DOCKER IMAGES>DONE"
 
-echo 'DOWNLOADING CODE INVENTORY ASSEMBLY SCRIPTS>'
-echo "    TODO: Download CIT Assembly archive/tgz to /tmp"
-echo "    TODO: Unpack tgz to ~/.veracode/code-inventory/bin"
-echo "    TODO: Remove CIT Assembly archive from /tmp"
-echo 'DOWNLOADING CODE INVENTORY ASSEMBLY SCRIPTS>DONE'
+echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>"
+echo "    TODO: Run CIT Assembly docker image"
+echo "    TODO: Verify CIT Assembly dir has been created ~/.veracode/code-inventory/bin"
+echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>DONE"
 
 echo 'CREATING MASTER PASSWORD>'
 create_master_password
@@ -367,7 +417,13 @@ echo 'CREATING DOCKER SECRETS>DONE'
 
 verify_master_password
 verify_docker_secrets
-# TODO: verify_installed_files
+verify_installed_files
 
-# TODO: Prompt to run Code Inventory
+echo "${APP} INSTALLED>"
+
+if prompt_Yn "
+  Would you like to run ${App}? (Y/n) "; then
+  ${assembly_dir}/start.sh
+fi
+
 cd ${from_dir} || exit 1
