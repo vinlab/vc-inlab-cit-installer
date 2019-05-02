@@ -15,7 +15,7 @@ BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
 POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
 GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
 FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
-ASSEMBLY_DOCKER_IMAGE=vinlab/code-inventory-assembly:latest
+ASSEMBLY_DOCKER_IMAGE=vinlab/vc-inlab-cit-assembly:latest
 APP='CODE INVENTORY'
 App='Code Inventory'
 
@@ -307,9 +307,9 @@ pull_docker_image() {
 pull_docker_images(){
   if ! pull_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! pull_docker_image ${POSTGRES_DOCKER_IMAGE} \
-  || ! pull_docker_image ${GRAFANA_DOCKER_IMAGE}
+  || ! pull_docker_image ${GRAFANA_DOCKER_IMAGE} \
+  || ! pull_docker_image ${ASSEMBLY_DOCKER_IMAGE}
   #|| ! pull_docker_image ${FRONTEND_DOCKER_IMAGE}
-  #|| ! pull_docker_image ${ASSEMBLY_DOCKER_IMAGE}
   then
     exit 1
   fi
@@ -336,7 +336,8 @@ verify_docker_image() {
 verify_docker_images(){
   if ! verify_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! verify_docker_image ${POSTGRES_DOCKER_IMAGE} \
-  || ! verify_docker_image ${GRAFANA_DOCKER_IMAGE}
+  || ! verify_docker_image ${GRAFANA_DOCKER_IMAGE} \
+  || ! verify_docker_image ${ASSEMBLY_DOCKER_IMAGE}
   #|| ! verify_docker_image ${FRONTEND_DOCKER_IMAGE}
   then
     exit 1
