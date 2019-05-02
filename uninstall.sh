@@ -3,14 +3,18 @@
 # Uninstall Code Inventory
 #
 # Removes:
-# - Code Inventory Assembly files
+# - Code Inventory Assembly files (~/.veracode/code-inventory/bin)
+# - Code Inventory docker images
+#
+# Optionally removes, if user has asked to remove user data:
+# - Code Inventory job files (~/.veracode/code-inventory/jobs)
+# - Downloaded source code (~/.veracode/code-inventory/code)
 # - Code Inventory docker secrets, except for the master password
-# - Code Inventory job files
+# - Postgres database
+# - Grafana data
 #
 # Will not remove:
 # - Master Password
-# - Postgres data
-# - Grafana data
 #
 # Author: Andrey Potekhin
 
@@ -121,7 +125,7 @@ docker_swarm_exists() {
 }
 
 code_inventory_is_installed(){
-	if [ -d "$home_dir" ]; then
+	if [ -d "${home_dir}" ]; then
 		true
 	else
 		false
@@ -253,55 +257,72 @@ verify_docker_secrets(){
 }
 
 delete_jobs_dir(){
-	if [ -d "$jobs_dir" ]; then
-		echo "Deleting $jobs_dir"
-		rm -r "$jobs_dir"
+	if [ -d "${jobs_dir}" ]; then
+		echo "Deleting ${jobs_dir}"
+		rm -r "${jobs_dir}"
 	fi
 }
 
 delete_assembly_dir(){
-	if [ -d "$assembly_dir" ]; then
-		echo "Deleting $assembly_dir"
-		rm -r "$assembly_dir"
+	if [ -d "${assembly_dir}" ]; then
+		echo "Deleting ${assembly_dir}"
+		rm -r "${assembly_dir}"
 	fi
 }
 
 delete_data_dir(){
-	if [ -d "$data_dir" ]; then
-		echo "Deleting $data_dir"
-		rm -r "$data_dir"
+	if [ -d "${data_dir}" ]; then
+		echo "Deleting ${data_dir}"
+		rm -r "${data_dir}"
 	fi
 }
 
 delete_grafana_dir(){
-	if [ -d "$grafana_dir" ]; then
-		echo "Deleting $grafana_dir"
-		rm -r "$grafana_dir"
+	if [ -d "${grafana_dir}" ]; then
+		echo "Deleting ${grafana_dir}"
+		rm -r "${grafana_dir}"
 	fi
 }
+
+delete_home_dir_if_empty(){
+	if [ -z "$(ls -A ${home_dir})" ]; then
+    echo "DELETING ${APP} HOME DIR>"
+		echo "Deleting ${home_dir}"
+		rm "${home_dir}"
+    echo "DELETING ${APP} HOME DIR>DONE"
+	else
+    echo "CHECKING ${APP} HOME DIR>"
+    echo "${App} home dir is not empty. To completely remove your data, manually delete ${home_dir}"
+	fi
+}
+
 
 verify_uninstalled_files(){
 	result=true
   if ${delete_user_data}; then
-  	if [ -d "$jobs_dir" ]; then
+  	if [ -d "${jobs_dir}" ]; then
   		echo 'VERIFYING UNINSTALLED FILES>' >&2
   		echo "Directory still exists: $jobs_dir"
   		result=false
   	fi
-  	if [ -d "$assembly_dir" ]; then
+  	if [ -d "${assembly_dir}" ]; then
   		echo 'VERIFYING UNINSTALLED FILES>' >&2
   		echo "Directory still exists: $assembly_dir"
   		result=false
   	fi
-  	if [ -d "$data_dir" ]; then
+  	if [ -d "${data_dir}" ]; then
   		echo 'VERIFYING UNINSTALLED FILES>' >&2
   		echo "Directory still exists: $data_dir"
   		result=false
   	fi
-  	if [ -d "$grafana_dir" ]; then
+  	if [ -d "${grafana_dir}" ]; then
   		echo 'VERIFYING UNINSTALLED FILES>' >&2
   		echo "Directory still exists: $grafana_dir"
   		result=false
+  	fi
+  	if [ -d "${home_dir}" ]; then
+  		echo 'VERIFYING UNINSTALLED FILES>' >&2
+  		echo "Directory still exists: $home_dir"
   	fi
   	if ! ${result}; then
   		echo 'UNINSTALLED FILES VERIFICATION FAILED'
@@ -388,6 +409,8 @@ if ${delete_user_data}; then
   delete_data_dir
   echo "DELETING ${APP} DATABASE>DONE"
 
+  delete_home_dir_if_empty
+  verify_uninstalled_files
 else
   echo "
 >The uninstallation did not remove your data.

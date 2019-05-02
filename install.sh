@@ -166,7 +166,7 @@ require_container_not_running() {
 require_app_not_running() {
   if docker_container_exists 'code_inventory_backend-app'; then
       echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>' >&2
-	  echo '${App} is currently running, please stop it before proceeding.' >&2
+	  echo "${App} is currently running, please stop it before proceeding." >&2
 	  exit 1
 	fi
 }
@@ -344,13 +344,38 @@ verify_docker_images(){
   fi
 }
 
+install_assembly_scripts(){
+  container=`docker create --rm ${ASSEMBLY_DOCKER_IMAGE}`
+  if [ -z "${container}" ]; then
+    echo 'CREATING ASSEMBLY CONTAINER>' >&2
+    echo "Failed to create container for image ${ASSEMBLY_DOCKER_IMAGE}" >&2
+    exit 1
+  fi
+  if ! docker cp "${container}:/var/bin" "${assembly_dir}"; then
+    echo 'COPYING ASSEMBLY BINARIES>' >&2
+    echo "Failed to copy assembly binaries to ${assembly_dir}" >&2
+    exit 1
+  fi
+  if ! docker rm "${container}"; then
+    echo 'REMOVING ASSEMBLY CONTAINER>' >&2
+    echo "WARNING: Failed to remove assembly container" >&2
+  fi
+	if ! [ -d "${assembly_dir}" ]; then
+    echo 'VERIFYING ASSEMBLY BINARIES DIR>' >&2
+    echo "Assembly binaries dir not found: ${assembly_dir}" >&2
+    exit 1
+  fi
+}
+
 check_if_app_installed(){
   if docker_image_exists ${BACKEND_DOCKER_IMAGE} \
   || docker_image_exists ${FRONTEND_DOCKER_IMAGE}; then
     echo 'CHECKING IF APPLICATION ALREADY INSTALLED>' >&2
-    prompt "
+    if ! prompt_Yn "
     ${App} is already installed." "
-    Proceed with reinstall? (Your existing data will not be affected.) (y/N) "
+    Proceed with reinstall? (Your existing data will not be affected.) (Y/n) "; then
+      exit 0
+    fi
   fi
 }
 
@@ -379,7 +404,7 @@ from_dir=`pwd`
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd ${dir} || exit 1
 
-startup_prompt
+#startup_prompt
 
 echo 'CHECKING SETUP PREREQUISITES>'
 require_docker
@@ -396,13 +421,12 @@ check_if_app_installed
 echo "CHECKING IF ${APP} IS ALREADY INSTALLED>DONE"
 
 echo "PULLING ${APP} DOCKER IMAGES>"
-pull_docker_images
+#pull_docker_images
 verify_docker_images
 echo "PULLING ${APP} DOCKER IMAGES>DONE"
 
 echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>"
-echo "    TODO: Run CIT Assembly docker image"
-echo "    TODO: Verify CIT Assembly dir has been created ~/.veracode/code-inventory/bin"
+install_assembly_scripts
 echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>DONE"
 
 echo 'MASTER PASSWORD>'
@@ -419,9 +443,32 @@ verify_installed_files
 
 echo "${APP} INSTALLED>"
 
+echo "
+  ${App} is now installed.
+
+  ${App}'s home directory: ${home_dir}
+
+  1. To start and stop ${App} at any time, run the following scripts located in home directory:
+    ./start.sh - Start ${App}, show logs of normal levels (INFO, WARN, ERROR)
+    ./stop.sh - Stop ${App}
+    ./start+logs.sh - Start and show logs up to DEBUG level
+    ./start+trace.sh - Start and show logs up to TRACE level
+    ./start-silent.sh - Start without showing the logs
+
+  2. ${App} always runs in as docker stack (similar to daemon) mode. That means, that you can
+  press ^C at any point to stop the logs from coming to your screen - ${App} will continue to run.
+
+  3. To stop ${App}, run ./stop.sh from application home directory."
+
 if prompt_Yn "
-  Would you like to run ${App}? (Y/n) "; then
-  ${assembly_dir}/start.sh
+  Would you like to run ${App} now? (Y/n) "; then
+  if prompt_Yn "
+    Recap: the application will start as daemon. Please use ^C at any point to stop the logs from coming to screen.
+    Use the ./stop.sh script from app home directory to completely stop the application.
+
+    I got it, let's run (Y/n) "; then
+    ${assembly_dir}/start.sh
+  fi
 fi
 
 cd ${from_dir} || exit 1
