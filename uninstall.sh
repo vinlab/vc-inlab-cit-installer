@@ -390,13 +390,12 @@ if ${delete_user_data}; then
 
 else
   echo "
-        >The uninstallation did not remove your data.
-
-        If you reinstall ${App}, your existing data will be there.
-        To completely remove your data, manually delete ${home_dir}"
+>The uninstallation did not remove your data.
+If you reinstall ${App}, your existing data will be there.
+To completely remove your data, manually delete ${home_dir}"
 fi
 
 exit_sequence
-echo '${APP} HAS BEEN UNINSTALLED'
+echo "${APP} HAS BEEN UNINSTALLED"
 
 cd ${from_dir} || exit 1

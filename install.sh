@@ -344,14 +344,12 @@ verify_docker_images(){
 }
 
 check_if_app_installed(){
-  #echo "Check for CIT is already installed, prompt to proceed with overwrite"
-  if ! docker_image_exists ${BACKEND_DOCKER_IMAGE} \
-  || ! docker_image_exists ${FRONTEND_DOCKER_IMAGE}
-  then
+  if docker_image_exists ${BACKEND_DOCKER_IMAGE} \
+  || docker_image_exists ${FRONTEND_DOCKER_IMAGE}; then
     echo 'CHECKING IF APPLICATION ALREADY INSTALLED>' >&2
     prompt "
     ${App} is already installed." "
-    Proceed with reinstall? Your data will not be affected. (y/N) "
+    Proceed with reinstall? (Your existing data will not be affected.) (y/N) "
   fi
 }
 
@@ -367,9 +365,8 @@ verify_dir(){
 
 verify_installed_files() {
   if ! verify_dir "application home" ${home_dir} \
-  || ! verify_dir "application binaries" ${assembly_dir}
-  then
-    echo "${APP} INSTALLATION FAILED>"
+  || ! verify_dir "application binaries" ${assembly_dir}; then
+    echo "${APP} INSTALLATION HAS FAILED"
     exit 1
   fi
 }
@@ -407,9 +404,9 @@ echo "    TODO: Run CIT Assembly docker image"
 echo "    TODO: Verify CIT Assembly dir has been created ~/.veracode/code-inventory/bin"
 echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>DONE"
 
-echo 'CREATING MASTER PASSWORD>'
+echo 'MASTER PASSWORD>'
 create_master_password
-echo 'CREATING MASTER PASSWORD>DONE'
+echo 'MASTER PASSWORD>DONE'
 
 echo 'CREATING DOCKER SECRETS>'
 create_docker_secrets
