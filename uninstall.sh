@@ -23,7 +23,7 @@
 BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
 POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
 GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
-FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
+FRONTEND_DOCKER_IMAGE=vinlab/vc-inlab-cit-frontend:latest
 ASSEMBLY_DOCKER_IMAGE=vinlab/vc-inlab-cit-assembly:latest
 APP='CODE INVENTORY'
 App='Code Inventory'
@@ -413,7 +413,7 @@ if ${delete_user_data}; then
   verify_uninstalled_files
 else
   echo "
->The uninstallation did not remove your data.
+>Uninstallation did not remove your ${App} data.
 If you reinstall ${App}, your existing data will be there.
 To completely remove your data, manually delete ${home_dir}"
 fi

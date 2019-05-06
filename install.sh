@@ -14,7 +14,7 @@
 BACKEND_DOCKER_IMAGE=vinlab/code-inventory-backend:latest
 POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
 GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
-FRONTEND_DOCKER_IMAGE=vinlab/code-inventory-frontend:latest
+FRONTEND_DOCKER_IMAGE=vinlab/vc-inlab-cit-frontend:latest
 ASSEMBLY_DOCKER_IMAGE=vinlab/vc-inlab-cit-assembly:latest
 APP='CODE INVENTORY'
 App='Code Inventory'
@@ -344,25 +344,41 @@ verify_docker_images(){
   fi
 }
 
+create_dir_if_missing() {
+	if ! [ -d "$2" ]; then
+		echo "Creating $1 dir: $2"
+		mkdir -p "$2"
+	fi
+}
+
 install_assembly_scripts(){
+  create_dir_if_missing "application home" "${home_dir}"
   container=`docker create --rm ${ASSEMBLY_DOCKER_IMAGE}`
   if [ -z "${container}" ]; then
-    echo 'CREATING ASSEMBLY CONTAINER>' >&2
-    echo "Failed to create container for image ${ASSEMBLY_DOCKER_IMAGE}" >&2
+    echo 'CREATING ASSEMBLY CONTAINER>'
+    echo "Failed to create container for image ${ASSEMBLY_DOCKER_IMAGE}"
     exit 1
   fi
-  if ! docker cp "${container}:/var/bin" "${assembly_dir}"; then
-    echo 'COPYING ASSEMBLY BINARIES>' >&2
-    echo "Failed to copy assembly binaries to ${assembly_dir}" >&2
+  copy_to_dir=${assembly_dir}
+	if [ -d "${copy_to_dir}" ]; then
+	  # ${assembly_dir} already exists. We need to supply one-vevel-above dir
+	  # to the docker cp command, otherwise it will create an extra bin/ dir,
+	  # resulting in ${home_dir}/bin/bin
+    echo 'BINARIES DIR ALREADY EXISTS, OVERWRITING>'
+    copy_to_dir=${home_dir}
+	fi
+  if ! docker cp "${container}:/var/bin" "${copy_to_dir}"; then
+    echo 'COPYING ASSEMBLY BINARIES>'
+    echo "Failed to copy assembly binaries to ${assembly_dir}"
     exit 1
   fi
-  if ! docker rm "${container}"; then
-    echo 'REMOVING ASSEMBLY CONTAINER>' >&2
-    echo "WARNING: Failed to remove assembly container" >&2
+  if ! docker rm "${container}" --force; then
+    echo 'REMOVING ASSEMBLY CONTAINER>'
+    echo "WARNING: Failed to remove assembly container"
   fi
 	if ! [ -d "${assembly_dir}" ]; then
-    echo 'VERIFYING ASSEMBLY BINARIES DIR>' >&2
-    echo "Assembly binaries dir not found: ${assembly_dir}" >&2
+    echo 'VERIFYING ASSEMBLY BINARIES DIR>'
+    echo "Assembly binaries dir not found: ${assembly_dir}"
     exit 1
   fi
 }
@@ -404,7 +420,7 @@ from_dir=`pwd`
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd ${dir} || exit 1
 
-#startup_prompt
+startup_prompt
 
 echo 'CHECKING SETUP PREREQUISITES>'
 require_docker
@@ -421,7 +437,7 @@ check_if_app_installed
 echo "CHECKING IF ${APP} IS ALREADY INSTALLED>DONE"
 
 echo "PULLING ${APP} DOCKER IMAGES>"
-#pull_docker_images
+pull_docker_images
 verify_docker_images
 echo "PULLING ${APP} DOCKER IMAGES>DONE"
 
@@ -466,7 +482,8 @@ if prompt_Yn "
     Recap: the application will start as daemon. Please use ^C at any point to stop the logs from coming to screen.
     Use the ./stop.sh script from app home directory to completely stop the application.
 
-    I got it, let's run (Y/n) "; then
+    I got it, let's run (Y/n)
+    "; then
     ${assembly_dir}/start.sh
   fi
 fi
