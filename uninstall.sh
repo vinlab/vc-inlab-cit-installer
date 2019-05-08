@@ -204,8 +204,8 @@ delete_docker_images(){
   if ! delete_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! delete_docker_image ${POSTGRES_DOCKER_IMAGE} \
   || ! delete_docker_image ${GRAFANA_DOCKER_IMAGE} \
-  || ! delete_docker_image ${ASSEMBLY_DOCKER_IMAGE}
-  #|| ! delete_docker_image ${FRONTEND_DOCKER_IMAGE}
+  || ! delete_docker_image ${ASSEMBLY_DOCKER_IMAGE} \
+  || ! delete_docker_image ${FRONTEND_DOCKER_IMAGE}
   then
     exit 1
   fi

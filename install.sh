@@ -16,6 +16,7 @@ POSTGRES_DOCKER_IMAGE=vinlab/vc-inlab-cit-postgres:1.0.0
 GRAFANA_DOCKER_IMAGE=vinlab/vc-inlab-cit-grafana:1.0.1
 FRONTEND_DOCKER_IMAGE=vinlab/vc-inlab-cit-frontend:latest
 ASSEMBLY_DOCKER_IMAGE=vinlab/vc-inlab-cit-assembly:latest
+
 APP='CODE INVENTORY'
 App='Code Inventory'
 
@@ -143,7 +144,6 @@ require_docker_swarm() {
 
 require_docker_login() {
   return
-  # TODO
 }
 
 docker_container_exists(){
@@ -308,8 +308,8 @@ pull_docker_images(){
   if ! pull_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! pull_docker_image ${POSTGRES_DOCKER_IMAGE} \
   || ! pull_docker_image ${GRAFANA_DOCKER_IMAGE} \
-  || ! pull_docker_image ${ASSEMBLY_DOCKER_IMAGE}
-  #|| ! pull_docker_image ${FRONTEND_DOCKER_IMAGE}
+  || ! pull_docker_image ${ASSEMBLY_DOCKER_IMAGE} \
+  || ! pull_docker_image ${FRONTEND_DOCKER_IMAGE}
   then
     exit 1
   fi
@@ -337,8 +337,8 @@ verify_docker_images(){
   if ! verify_docker_image ${BACKEND_DOCKER_IMAGE} \
   || ! verify_docker_image ${POSTGRES_DOCKER_IMAGE} \
   || ! verify_docker_image ${GRAFANA_DOCKER_IMAGE} \
-  || ! verify_docker_image ${ASSEMBLY_DOCKER_IMAGE}
-  #|| ! verify_docker_image ${FRONTEND_DOCKER_IMAGE}
+  || ! verify_docker_image ${ASSEMBLY_DOCKER_IMAGE} \
+  || ! verify_docker_image ${FRONTEND_DOCKER_IMAGE}
   then
     exit 1
   fi
@@ -480,7 +480,7 @@ if prompt_Yn "
   Would you like to run ${App} now? (Y/n) "; then
   if prompt_Yn "
     Recap: the application will start as daemon. Please use ^C at any point to stop the logs from coming to screen.
-    Use the ./stop.sh script from app home directory to completely stop the application.
+    Use the ./stop.sh script from app home directory (${home_dir}) to completely stop the application.
 
     I got it, let's run (Y/n)
     "; then
