@@ -223,7 +223,7 @@ create_master_password(){
       fi
     fi
     if ! ${want_to_overwrite}; then
-      echo "Keeping existinig master password"
+      echo "Keeping the existinig master password"
     fi
   fi
   if ! ${already_exists} || ${want_to_overwrite}; then

@@ -165,6 +165,25 @@ require_app_not_running() {
 	fi
 }
 
+close_app_if_running() {
+  if docker_container_exists 'code_inventory_backend-app'; then
+      echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>'
+	prompt "
+	${App} is currently running." "
+	Stop and proceed with uninstall? (y/N) "
+
+    ${assembly_dir}/stop.sh
+    if docker_container_exists 'code_inventory_backend-app' \
+     || docker_container_exists 'code_inventory_backend-postgres' \
+     || docker_container_exists 'code_inventory_backend-grafana' \
+     || docker_container_exists 'code_inventory_frontend-app'
+    then
+      # Retry stop atttempt
+      ${assembly_dir}/stop.sh
+    fi
+	fi
+}
+
 startup_sequence(){
 	if ! docker_exists; then
 		echo 'WARNING: Docker command not found'
@@ -175,6 +194,7 @@ startup_sequence(){
 	if docker_exists && docker_swarm_exists; then
 		docker_present=true
 	fi
+	close_app_if_running
 	require_app_not_running
 	require_container_not_running 'code_inventory_backend-postgres'
 	require_container_not_running 'code_inventory_backend-grafana'
@@ -369,10 +389,6 @@ exit_sequence(){
 from_dir=`pwd`
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd ${dir} || exit 1
-
-
-#prompt_to_delete_user_data
-#exit 0
 
 startup_prompt
 echo 'CHECKING UNINSTALL PREREQUISITES>'
