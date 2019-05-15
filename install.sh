@@ -478,9 +478,11 @@ verify_docker_secrets
 verify_installed_files
 
 echo "${APP} INSTALLED>"
-echo "INITIALIZING ${APP} INFRASTRUCTURE>"
-${assembly_dir}/start-infra.sh
-echo "INITIALIZING ${APP} INFRASTRUCTURE>DONE"
+
+# This is now part of Code Inventory startup process
+# echo "INITIALIZING ${APP} INFRASTRUCTURE>"
+#${assembly_dir}/start-infra.sh
+#echo "INITIALIZING ${APP} INFRASTRUCTURE>DONE"
 
 echo "
   ${App} is now installed.
