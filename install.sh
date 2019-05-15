@@ -22,8 +22,11 @@ App='Code Inventory'
 
 home_dir=~/.veracode/code-inventory
 assembly_dir=${home_dir}/bin
-jobs_dir=${home_dir}/jobs
+postgres_dir=${home_dir}/data/postgresql
 grafana_dir=${home_dir}/grafana
+code_dir=${home_dir}/code
+data_dir=${home_dir}/data
+jobs_dir=${home_dir}/jobs
 
 
 prompt() {
@@ -351,6 +354,19 @@ create_dir_if_missing() {
 	fi
 }
 
+create_app_dirs() {
+  if ! create_dir_if_missing "application home" "${home_dir}" \
+  || ! create_dir_if_missing "postgres data" "${postgres_dir}" \
+  || ! create_dir_if_missing "code" "${code_dir}" \
+  || ! create_dir_if_missing "jobs" "${jobs_dir}" \
+  || ! create_dir_if_missing "grafana" "${grafana_dir}" \
+  || ! create_dir_if_missing "grafana data" "${grafana_dir}/data"
+  then
+    echo "${APP} INSTALLATION HAS FAILED"
+    exit 1
+  fi
+}
+
 install_assembly_scripts(){
   create_dir_if_missing "application home" "${home_dir}"
   container=`docker create --rm ${ASSEMBLY_DOCKER_IMAGE}`
@@ -441,6 +457,10 @@ pull_docker_images
 verify_docker_images
 echo "PULLING ${APP} DOCKER IMAGES>DONE"
 
+echo "CREATING ${APP} DIRECTORY STRUCTURE>"
+create_app_dirs
+echo "CREATING ${APP} DIRECTORY STRUCTURE>DONE"
+
 echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>"
 install_assembly_scripts
 echo "INSTALLING ${APP} ASSEMBLY SCRIPTS>DONE"
@@ -458,6 +478,9 @@ verify_docker_secrets
 verify_installed_files
 
 echo "${APP} INSTALLED>"
+echo "INITIALIZING ${APP} INFRASTRUCTURE>"
+${assembly_dir}/start-infra.sh
+echo "INITIALIZING ${APP} INFRASTRUCTURE>DONE"
 
 echo "
   ${App} is now installed.

@@ -32,6 +32,7 @@ home_dir=~/.veracode/code-inventory
 assembly_dir=${home_dir}/bin
 jobs_dir=${home_dir}/jobs
 grafana_dir=${home_dir}/grafana
+code_dir=${home_dir}/code
 data_dir=${home_dir}/data
 docker_present=false
 delete_user_data=false
@@ -134,7 +135,7 @@ code_inventory_is_installed(){
 
 require_code_inventory_installed(){
 	if ! code_inventory_is_installed; then
-	  echo '${App} installation not found. Exiting.' >&2
+	  echo "${App} installation not found. Exiting." >&2
 	  exit 1
 	fi
 }
@@ -270,6 +271,13 @@ delete_assembly_dir(){
 	fi
 }
 
+delete_code_dir(){
+	if [ -d "${code_dir}" ]; then
+		echo "Deleting ${code_dir}"
+		rm -r "${code_dir}"
+	fi
+}
+
 delete_data_dir(){
 	if [ -d "${data_dir}" ]; then
 		echo "Deleting ${data_dir}"
@@ -288,7 +296,7 @@ delete_home_dir_if_empty(){
 	if [ -z "$(ls -A ${home_dir})" ]; then
     echo "DELETING ${APP} HOME DIR>"
 		echo "Deleting ${home_dir}"
-		rm "${home_dir}"
+		rm -d "${home_dir}"
     echo "DELETING ${APP} HOME DIR>DONE"
 	else
     echo "CHECKING ${APP} HOME DIR>"
