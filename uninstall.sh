@@ -170,7 +170,7 @@ close_app_if_running() {
       echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>'
 	prompt "
 	${App} is currently running." "
-	Stop and proceed with uninstall? (y/N) "
+	Stop ${App} and proceed with uninstall? (y/N) "
 
     ${assembly_dir}/stop.sh
     if docker_container_exists 'code_inventory_backend-app' \
