@@ -9,9 +9,9 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-#Third-party Software
+# Third-party Software
 
-##Node Package Manager
+## Node Package Manager
 
 
 The npm application  
@@ -41,18 +41,18 @@ Copyright (c) Mathias Pettersson and Brian Hammond
 Copyright (c) Tjarda Koster, https://jelloween.deviantart.com  
 Used with permission  
 
-###The Artistic Liscense 2.0
+### The Artistic Liscense 2.0
 
 [https://opensource.org/licenses/Artistic-2.0]()
 
 
 
-##Individual Node Packages
+## Individual Node Packages
 
 Licenses for individual per-package are located under their corresponding directories under `/node_modules` 
 
 
-##Grafana PieChart Panel v1.3.3
+## Grafana PieChart Panel v1.3.3
 
 The MIT License (MIT)
 
@@ -76,7 +76,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-##Grafana MultiStat Panel v1.2.0
+## Grafana MultiStat Panel v1.2.0
 
 MIT License
 
@@ -101,7 +101,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 
-##Docker Stack Wait
+## Docker Stack Wait
 
 Copyright 2018 Brandon Mitchell
 
