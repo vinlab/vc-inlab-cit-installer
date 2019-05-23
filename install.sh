@@ -5,7 +5,7 @@
 # Enable installing from a curl command
 #
 # For example
-# curl -fsS https://codeinventory.com/install | bash
+# curl -fsS https://codeinventory.com/latest/install | bash
 #
 # Author: Andrey Potekhin
 
