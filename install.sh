@@ -535,7 +535,7 @@ if prompt_Yn "
     Recap: the application will start as daemon. Please use ^C at any point to stop the logs from coming to screen.
     Use the ./stop.sh script from app home directory (${home_dir}) to completely stop the application.
 
-    I got it, let's run (Y/n)"; then
+    I got it, let's run (Y/n) "; then
     echo
     ${assembly_dir}/start.sh
   fi
