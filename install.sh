@@ -102,14 +102,6 @@ startup_prompt() {
   Yes, I do have all these (y/N) "
 
   prompt "
-	Login requirements:
-
-	- You are logged in to Docker Hub
-		- Run 'docker login' command at least once
-		- This is required for pulling ${App}'s docker images" "
-  I am logged in, let's go (y/N) "
-
-  prompt "
   "
 }
 
@@ -143,10 +135,6 @@ require_docker_swarm() {
     echo 'This node is not a swarm manager. Use "docker swarm init" to create a single-node swarm (or "docker swarm join" to connect to existing swarm.)' >&2
     exit 1
   fi
-}
-
-require_docker_login() {
-  return
 }
 
 docker_container_exists(){
@@ -300,7 +288,6 @@ verify_docker_secrets(){
 pull_docker_image() {
   if ! docker pull "$1"; then
     echo "Failed to pull docker image: $1." >&2
-    echo "Are you logged in to Docker Hub? Please run 'docker login' command!" >&2
     false
   else
     true
@@ -441,7 +428,6 @@ startup_prompt
 echo 'CHECKING SETUP PREREQUISITES>'
 require_docker
 require_docker_swarm
-require_docker_login
 require_app_not_running
 require_container_not_running 'code_inventory_backend-postgres'
 require_container_not_running 'code_inventory_backend-grafana'
