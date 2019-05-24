@@ -165,6 +165,28 @@ require_app_not_running() {
 	fi
 }
 
+any_app_container_running() {
+  if docker_container_exists 'code_inventory_backend-app' \
+   || docker_container_exists 'code_inventory_backend-postgres' \
+   || docker_container_exists 'code_inventory_backend-grafana' \
+   || docker_container_exists 'code_inventory_frontend-app'
+  then
+    true
+  else
+    false
+  fi
+}
+
+force_quit_app(){
+  docker stack down code-inventory
+  sleep 11
+  if any_app_container_running; then
+    echo "SOME CONTAINERS ARE STILL RUNNING. RETRYING TO FORCE-QUIT>"
+    docker stack down code-inventory
+    sleep 11
+  fi
+}
+
 close_app_if_running() {
   if docker_container_exists 'code_inventory_backend-app'; then
       echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>'
@@ -172,14 +194,15 @@ close_app_if_running() {
 	${App} is currently running." "
 	Stop ${App} and proceed with uninstall? (y/N) "
 
-    ${assembly_dir}/stop.sh
-    if docker_container_exists 'code_inventory_backend-app' \
-     || docker_container_exists 'code_inventory_backend-postgres' \
-     || docker_container_exists 'code_inventory_backend-grafana' \
-     || docker_container_exists 'code_inventory_frontend-app'
-    then
-      # Retry stop atttempt
+    if ! [ -f "${assembly_dir}/stop.sh" ]; then
+      echo "APPLICATION STOP SCRIPT NOT FOUND. FORCE-QUITTING THE APPLICATION>"
+      force_quit_app
+    else
       ${assembly_dir}/stop.sh
+      if any_app_container_running; then
+        echo "SOME CONTAINERS ARE STILL RUNNING. RETRYING STOP ATTEMPT>"
+        ${assembly_dir}/stop.sh
+      fi
     fi
 	fi
 }

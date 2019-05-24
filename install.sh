@@ -101,8 +101,7 @@ startup_prompt() {
 	(If you are not sure about any of these, please consult ${App} documentation)" "
   Yes, I do have all these (y/N) "
 
-  prompt "
-  "
+  echo
 }
 
 require_docker() {
@@ -151,6 +150,48 @@ require_container_not_running() {
       echo 'CHECKING FOR RUNNING APPLICATION CONTAINERS>' >&2
 	  echo "One of ${App} containers is currently running: $1. Please stop ${App} before proceeding." >&2
 	  exit 1
+	fi
+}
+
+any_app_container_running() {
+  if docker_container_exists 'code_inventory_backend-app' \
+   || docker_container_exists 'code_inventory_backend-postgres' \
+   || docker_container_exists 'code_inventory_backend-grafana' \
+   || docker_container_exists 'code_inventory_frontend-app'
+  then
+    true
+  else
+    false
+  fi
+}
+
+force_quit_app(){
+  docker stack down code-inventory
+  sleep 11
+  if any_app_container_running; then
+    echo "SOME CONTAINERS ARE STILL RUNNING. RETRYING TO FORCE-QUIT>"
+    docker stack down code-inventory
+    sleep 11
+  fi
+}
+
+close_app_if_running() {
+  if docker_container_exists 'code_inventory_backend-app'; then
+      echo 'CHECKING IF APPLICATION IS CURRENTLY RUNNING>'
+	prompt "
+	${App} is currently running." "
+	Stop ${App} and proceed with install? (y/N) "
+
+    if ! [ -f "${assembly_dir}/stop.sh" ]; then
+      echo "APPLICATION STOP SCRIPT NOT FOUND. FORCE-QUITTING THE APPLICATION>"
+      force_quit_app
+    else
+      ${assembly_dir}/stop.sh
+      if any_app_container_running; then
+        echo "SOME CONTAINERS ARE STILL RUNNING. RETRYING STOP ATTEMPT>"
+        ${assembly_dir}/stop.sh
+      fi
+    fi
 	fi
 }
 
@@ -428,6 +469,7 @@ startup_prompt
 echo 'CHECKING SETUP PREREQUISITES>'
 require_docker
 require_docker_swarm
+close_app_if_running
 require_app_not_running
 require_container_not_running 'code_inventory_backend-postgres'
 require_container_not_running 'code_inventory_backend-grafana'
@@ -493,8 +535,8 @@ if prompt_Yn "
     Recap: the application will start as daemon. Please use ^C at any point to stop the logs from coming to screen.
     Use the ./stop.sh script from app home directory (${home_dir}) to completely stop the application.
 
-    I got it, let's run (Y/n)
-    "; then
+    I got it, let's run (Y/n)"; then
+    echo
     ${assembly_dir}/start.sh
   fi
 fi
