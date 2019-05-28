@@ -263,7 +263,7 @@ create_master_password(){
     read -p 'Confirm master password: ' -r -s
     master_password_confirmation=$REPLY
     echo
-    if [ ${master_password} -ne ${master_password_confirmation} ]; then
+    if [ ${master_password} != ${master_password_confirmation} ]; then
       echo "Passwords do not match, please retry"
       #TODO: implement retrying password entry
       verify_master_password
@@ -325,6 +325,99 @@ verify_docker_secrets(){
     exit 1
   fi
 }
+
+configure_mail(){
+  already_exists=false
+  want_to_overwrite=false
+  if ! docker_secret_exists 'code-inventory-mail-config'; then
+    if ! prompt_Yn "
+      Now we can configure SMTP mail account so that ${App} could send confirmation emails
+      to new users. This is optional." "
+      Configure SMTP mail account? (Y/n) "; then
+      return
+    fi
+    echo
+  else
+    already_exists=true
+    if ! prompt_Yn "Mail configuration already exists, keep it (recommended)? (Y/n) "; then
+      want_to_overwrite=true
+    fi
+    if ! ${want_to_overwrite}; then
+      echo "Keeping the existinig mail configuration"
+    fi
+  fi
+  if ! ${already_exists} || ${want_to_overwrite}; then
+    read -p 'Outgoing (SMTP) server name (e.g. smtp.my-org.com): ' -r
+    mail_host=$REPLY
+    read -p 'Outgoing (SMTP) server port: ' -r
+    mail_port=$REPLY
+    mail_smtp_auth='false'
+    if prompt_Yn "Outgoing server requires authentication? (Y/n) "; then
+      mail_smtp_auth='true'
+    fi
+    if ${mail_smtp_auth}; then
+      read -p 'Mail username: ' -r
+      mail_username=$REPLY
+      while true; do
+        read -p 'Mail password: ' -r -s
+        mail_password=$REPLY
+        echo
+        read -p 'Confirm password: ' -r -s
+        mail_password_confirmation=$REPLY
+        echo
+        if [ "${mail_password}" != "${mail_password_confirmation}" ]; then
+          echo "Passwords do not match, please retry"
+        else
+          break
+        fi
+      done
+    else
+      mail_username='no-user-specified'
+      mail_password='no-password-specified'
+    fi
+    mail_tls='false'
+    if prompt_Yn "Outgoing server uses SSL/TLS? (Y/n) "; then
+      mail_tls='true'
+    fi
+    mail_starttls_enable='false'
+    if prompt_Yn "Use STARTTLS when available? (Y/n) "; then
+      mail_starttls_enable='true'
+    fi
+    # Remove mail config docker secret, if exists
+    if ${already_exists}; then
+      echo 'REMOVING MAIL CONFIG DOCKER SECRET>'
+      if ! docker secret rm code-inventory-mail-config; then
+        echo 'Failed to remove mail config docker secret, exiting' >&2
+        exit 1
+      fi
+      if docker secret ls | grep -w 'code-inventory-mail-config'; then
+        echo 'Failed to remove mail config docker secret, exiting' >&2
+        exit 1
+      fi
+    fi
+    # Save mail config into a docker secret
+    echo 'CREATING MAIL CONFIGURATION>'
+    template='{ "host":"%s", "port":%s, "username":"%s", "password":"%s", "tls":%s, "smtpauth":%s, "smtpstarttlsenable":%s }'
+    mail_config=$(printf "${template}" "${mail_host}" "${mail_port}" "${mail_username}" "${mail_password}" \
+     "${mail_tls}" "${mail_smtp_auth}" "${mail_starttls_enable}" )
+    #echo ${mail_config} # REMOVE THIS
+    #if false; then # Testing
+    if ! echo "${mail_config}" | docker secret create code-inventory-mail-config -; then
+      echo 'Failed to create mail config docker secret, exiting' >&2
+      exit 1
+    fi
+    echo 'CREATING MAIL CONFIGURATION>DONE'
+  fi
+  verify_mail_configuration
+}
+
+verify_mail_configuration() {
+  if ! docker secret ls | grep -w 'code-inventory-mail-config' &> /dev/null; then
+    echo 'VERIFYING MAIL ACCOUNT CONFIGRUATUION>' >&2
+    echo 'WARN: SMTP configuration not found.' >&2
+  fi
+}
+
 
 pull_docker_image() {
   if ! docker pull "$1"; then
@@ -500,6 +593,10 @@ echo 'MASTER PASSWORD>DONE'
 echo 'CREATING DOCKER SECRETS>'
 create_docker_secrets
 echo 'CREATING DOCKER SECRETS>DONE'
+
+echo 'CONFIGURING MAIL ACCOUNT>'
+configure_mail
+echo 'CONFIGURING MAIL ACCOUNT>DONE'
 
 verify_master_password
 verify_docker_secrets
