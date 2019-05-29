@@ -339,11 +339,11 @@ configure_mail(){
     echo
   else
     already_exists=true
-    if ! prompt_Yn "Mail configuration already exists, keep it (recommended)? (Y/n) "; then
+    if ! prompt_Yn "Mail configuration already exists, keep it? (Y/n) "; then
       want_to_overwrite=true
     fi
     if ! ${want_to_overwrite}; then
-      echo "Keeping the existinig mail configuration"
+      echo "Keeping the existing mail configuration"
     fi
   fi
   if ! ${already_exists} || ${want_to_overwrite}; then
@@ -397,7 +397,7 @@ configure_mail(){
     fi
     # Save mail config into a docker secret
     echo 'CREATING MAIL CONFIGURATION>'
-    template='{ "host":"%s", "port":%s, "username":"%s", "password":"%s", "tls":%s, "smtpauth":%s, "smtpstarttlsenable":%s }'
+    template='{ "host":"%s", "port":%s, "username":"%s", "password":"%s", "tls":%s, "smtpauth":%s, "starttlsenable":%s }'
     mail_config=$(printf "${template}" "${mail_host}" "${mail_port}" "${mail_username}" "${mail_password}" \
      "${mail_tls}" "${mail_smtp_auth}" "${mail_starttls_enable}" )
     #echo ${mail_config} # REMOVE THIS

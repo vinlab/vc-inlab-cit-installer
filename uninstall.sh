@@ -273,6 +273,13 @@ remove_docker_secrets(){
 	if docker_secret_exists 'code-inventory-db-grafana-password'; then
 		docker secret rm code-inventory-db-grafana-password
 	fi
+  if docker_secret_exists 'code-inventory-mail-config'; then
+    if prompt_Yn "Remove SMTP mail configuration? (Y/n) "; then
+      docker secret rm code-inventory-mail-config
+    else
+      echo "Keeping mail configuration"
+    fi
+  fi
 }
 
 verify_docker_secrets(){
@@ -280,18 +287,22 @@ verify_docker_secrets(){
   if ${delete_user_data}; then
     if docker_secret_exists 'code-inventory-db-backend-password'; then
       echo 'VERIFYING DOCKER SECRETS>' >&2
-      echo 'Docker secret still present: code-inventory-db-backend-password'
+      echo 'Docker secret still present: code-inventory-db-backend-password' >&2
       result=false
     fi
     if docker_secret_exists 'code-inventory-db-postgres-password'; then
       echo 'VERIFYING DOCKER SECRETS>' >&2
-      echo 'Docker secret still present: code-inventory-db-postgres-password'
+      echo 'Docker secret still present: code-inventory-db-postgres-password' >&2
       result=false
     fi
     if docker_secret_exists 'code-inventory-db-grafana-password'; then
       echo 'VERIFYING DOCKER SECRETS>' >&2
-      echo 'Docker secret still present: code-inventory-db-grafana-password'
+      echo 'Docker secret still present: code-inventory-db-grafana-password' >&2
       result=false
+    fi
+    if docker_secret_exists 'code-inventory-mail-config'; then
+      echo 'VERIFYING DOCKER SECRETS>' >&2
+      echo 'INFO: Docker secret still present: code-inventory-mail-config' >&2
     fi
     if ! ${result}; then
       echo 'DOCKER SECRETS VERIFICATION FAILED'
