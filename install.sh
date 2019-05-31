@@ -81,14 +81,6 @@ startup_prompt() {
   Before proceeding, please make sure you have the following."
 
   prompt "
-	Access requirements:
-
-	- Docker Hub account https://hub.docker.com
-	- Access to our Vinlab org at Docker Hub
-		- For example, you have received and accepted an invitation to *enduser* team at Vinlab org" "
-  I do have these (y/N) "
-
-  prompt "
 	Software requirements:
 
 	- OS X 10.x or higher
@@ -257,17 +249,19 @@ create_master_password(){
   fi
   if ! ${already_exists} || ${want_to_overwrite}; then
     # Prompt for master password
-    read -p 'Create master password, for encryption purposes: ' -r -s
-    master_password=$REPLY
-    echo
-    read -p 'Confirm master password: ' -r -s
-    master_password_confirmation=$REPLY
-    echo
-    if [ ${master_password} != ${master_password_confirmation} ]; then
-      echo "Passwords do not match, please retry"
-      #TODO: implement retrying password entry
-      verify_master_password
-    fi
+    while true; do
+      read -p 'Create master password, for encryption purposes: ' -r -s
+      master_password=$REPLY
+      echo
+      read -p 'Confirm master password: ' -r -s
+      master_password_confirmation=$REPLY
+      echo
+      if [ ${master_password} != ${master_password_confirmation} ]; then
+        echo "Passwords do not match, please retry"
+      else
+        break
+      fi
+    done
     # Remove master password docker secret, if any
     if ${already_exists}; then
       echo 'REMOVING MASTER PASSWORD DOCKER SECRET>'
@@ -417,7 +411,6 @@ verify_mail_configuration() {
     echo 'WARN: SMTP configuration not found.' >&2
   fi
 }
-
 
 pull_docker_image() {
   if ! docker pull "$1"; then
