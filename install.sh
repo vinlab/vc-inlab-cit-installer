@@ -323,12 +323,18 @@ verify_docker_secrets(){
 configure_mail(){
   already_exists=false
   want_to_overwrite=false
+  set_as_none=false
   if ! docker_secret_exists 'code-inventory-mail-config'; then
     if ! prompt_Yn "
       Now we can configure SMTP mail account so that ${App} could send confirmation emails
       to new users. This is optional." "
       Configure SMTP mail account? (Y/n) "; then
-      return
+      # Since 'code-inventory-mail-config' secret is mentioned in Code Inventory docker-compose
+      # config (in CIT Assembly), as external, the Docker tries to locate it and will fail with
+      # 'secret not found' error if it is missing.
+      # Issue 180 https://github.com/vinlab/vc-inlab-cit-backend/issues/180
+      # Workaround: still create the secret and set values as 'not-specified'
+      set_as_none=true
     fi
     echo
   else
@@ -340,7 +346,15 @@ configure_mail(){
       echo "Keeping the existing mail configuration"
     fi
   fi
-  if ! ${already_exists} || ${want_to_overwrite}; then
+  if ${set_as_none}; then
+    mail_host='not-specified'
+    mail_port=25
+    mail_smtp_auth='true'
+    mail_username='no-user-specified'
+    mail_password='no-password-specified'
+    mail_tls='false'
+    mail_starttls_enable='false'
+  elif ! ${already_exists} || ${want_to_overwrite}; then
     read -p 'Outgoing (SMTP) server name (e.g. smtp.my-org.com): ' -r
     mail_host=$REPLY
     read -p 'Outgoing (SMTP) server port: ' -r
@@ -377,31 +391,31 @@ configure_mail(){
     if prompt_Yn "Use STARTTLS when available? (Y/n) "; then
       mail_starttls_enable='true'
     fi
-    # Remove mail config docker secret, if exists
-    if ${already_exists}; then
-      echo 'REMOVING MAIL CONFIG DOCKER SECRET>'
-      if ! docker secret rm code-inventory-mail-config; then
-        echo 'Failed to remove mail config docker secret, exiting' >&2
-        exit 1
-      fi
-      if docker secret ls | grep -w 'code-inventory-mail-config'; then
-        echo 'Failed to remove mail config docker secret, exiting' >&2
-        exit 1
-      fi
-    fi
-    # Save mail config into a docker secret
-    echo 'CREATING MAIL CONFIGURATION>'
-    template='{ "host":"%s", "port":%s, "username":"%s", "password":"%s", "tls":%s, "smtpauth":%s, "starttlsenable":%s }'
-    mail_config=$(printf "${template}" "${mail_host}" "${mail_port}" "${mail_username}" "${mail_password}" \
-     "${mail_tls}" "${mail_smtp_auth}" "${mail_starttls_enable}" )
-    #echo ${mail_config} # REMOVE THIS
-    #if false; then # Testing
-    if ! echo "${mail_config}" | docker secret create code-inventory-mail-config -; then
-      echo 'Failed to create mail config docker secret, exiting' >&2
+  fi
+  # Remove mail config docker secret, if exists
+  if ${already_exists}; then
+    echo 'REMOVING MAIL CONFIG DOCKER SECRET>'
+    if ! docker secret rm code-inventory-mail-config; then
+      echo 'Failed to remove mail config docker secret, exiting' >&2
       exit 1
     fi
-    echo 'CREATING MAIL CONFIGURATION>DONE'
+    if docker secret ls | grep -w 'code-inventory-mail-config'; then
+      echo 'Failed to remove mail config docker secret, exiting' >&2
+      exit 1
+    fi
   fi
+  # Save mail config into a docker secret
+  echo 'CREATING MAIL CONFIGURATION>'
+  template='{ "host":"%s", "port":%s, "username":"%s", "password":"%s", "tls":%s, "smtpauth":%s, "starttlsenable":%s }'
+  mail_config=$(printf "${template}" "${mail_host}" "${mail_port}" "${mail_username}" "${mail_password}" \
+   "${mail_tls}" "${mail_smtp_auth}" "${mail_starttls_enable}" )
+  #echo ${mail_config} # REMOVE THIS
+  #if false; then # Testing
+  if ! echo "${mail_config}" | docker secret create code-inventory-mail-config -; then
+    echo 'Failed to create mail config docker secret, exiting' >&2
+    exit 1
+  fi
+  echo 'CREATING MAIL CONFIGURATION>DONE'
   verify_mail_configuration
 }
 

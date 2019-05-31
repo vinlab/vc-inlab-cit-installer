@@ -451,9 +451,9 @@ echo "DELETING ${APP} DOCKER IMAGES>"
 delete_docker_images
 echo "DELETING ${APP} DOCKER IMAGES>DONE"
 
-echo 'REMOVING DOCKER SECRETS>'
+echo 'REMOVING USER SECRETS>'
 remove_user_secrets
-echo 'REMOVING DOCKER SECRETS>DONE'
+echo 'REMOVING USER SECRETS>DONE'
 
 optionally_system_prune
 prompt_to_delete_user_data
@@ -472,9 +472,9 @@ if ${delete_user_data}; then
   echo "DELETING ${APP} CODE DIR>DONE"
 
   if ${docker_present}; then
-  	echo 'REMOVING DOCKER SECRETS>'
+  	echo 'REMOVING INFRASTRUCTURE SECRETS>'
   	remove_docker_secrets
-  	echo 'REMOVING DOCKER SECRETS>DONE'
+  	echo 'REMOVING INFRASTRUCTURE SECRETS>DONE'
   fi
 
   echo "DELETING ${APP} DATABASE>"
