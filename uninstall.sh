@@ -282,6 +282,16 @@ remove_docker_secrets(){
   fi
 }
 
+remove_user_secrets(){
+  if docker_secret_exists 'code-inventory-mail-config'; then
+    if prompt_Yn "Remove SMTP mail configuration? (Y/n) "; then
+      docker secret rm code-inventory-mail-config
+    else
+      echo "Keeping mail configuration"
+    fi
+  fi
+}
+
 verify_docker_secrets(){
 	result=true
   if ${delete_user_data}; then
@@ -440,6 +450,10 @@ echo "DELETING ${APP} ASSEMBLY SCRIPTS>DONE"
 echo "DELETING ${APP} DOCKER IMAGES>"
 delete_docker_images
 echo "DELETING ${APP} DOCKER IMAGES>DONE"
+
+echo 'REMOVING DOCKER SECRETS>'
+remove_user_secrets
+echo 'REMOVING DOCKER SECRETS>DONE'
 
 optionally_system_prune
 prompt_to_delete_user_data
