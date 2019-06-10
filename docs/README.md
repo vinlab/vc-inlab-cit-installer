@@ -2,27 +2,27 @@
 
 
 
-User Guide
+## User Guide
 
 [user-guide.md](user-guide/user-guide.md)
 
-API 
+## API 
 
 [api-document.md](api-document/api-document.md)
 
-FAQ
+## FAQ
 
 [faq.md](faq/faq.md)
 
-Troubleshooting
+## Troubleshooting
 
 [troubleshooting.md](troubleshooting/troubleshooting.md)
 
-Troubleshooting Archive
+## Troubleshooting Archive
 
 [troubleshooting-archive.md](troubleshooting-archive/troubleshooting-archive.md)
 
-Development
+## Development
 
 [development.md](development/development.md)
 

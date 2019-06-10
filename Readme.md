@@ -1,10 +1,10 @@
-# Code Inventory Installer Script
+# Code Inventory Installer
+This repository hosts the installation script and documentation for the Code Inventory Tool.
 
 ## Usage
-
-Install Code Inventory: `./install.sh`
-Install with Curl: `curl -sSL https://www.codeinventory.com/install`
+1) Clone this repository
+2) Run ./install.sh and follow the prompts to set up a Docker environment.
 
 ## Code Inventory Documentation
 
-[code-inventory-docs](https://github.com/vinlab/vc-inlab-cit-backend/tree/master/docs)
+[code-inventory-docs](docs/)
